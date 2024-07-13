@@ -29,14 +29,8 @@ const sendMessage = (ip) => {
         reply_markup: {
             inline_keyboard: [
                 [
-                    {
-                        text: 'Заблокировать IP',
-                        callback_data: `block_ip_${ip}`
-                    },
-                    {
-                        text: 'Разблокировать IP',
-                        callback_data: `unblock_ip_${ip}`
-                    }
+                    { text: 'Заблокировать IP', callback_data: `block_ip_${ip}` },
+                    { text: 'Разблокировать IP', callback_data: `unblock_ip_${ip}` }
                 ]
             ]
         }
@@ -71,6 +65,8 @@ bot.on('callback_query', (ctx) => {
     const unblockMatch = action.match(/^unblock_ip_(.*)$/)
     const closeSessionMatch = action.match(/^close_session_(.*)$/)
     const closeAndBlockMatch = action.match(/^close_and_block_(.*)$/)
+    const enableEmergencyMatch = action.match(/^enable_emergency$/)
+    const disableEmergencyMatch = action.match(/^disable_emergency$/)
 
     if (blockMatch) {
         const ip = blockMatch[1]
@@ -135,8 +131,27 @@ bot.on('callback_query', (ctx) => {
             }
         })
     }
-})
 
+    if (enableEmergencyMatch) {
+        exec('sudo ufw default deny incoming && sudo ufw enable', (err, stdout, stderr) => {
+            if (err) {
+                ctx.reply(`Ошибка при включении экстренной блокировки: ${stderr}`)
+            } else {
+                ctx.reply('Экстренная блокировка включена.')
+            }
+        })
+    }
+
+    if (disableEmergencyMatch) {
+        exec('sudo ufw disable', (err, stdout, stderr) => {
+            if (err) {
+                ctx.reply(`Ошибка при отключении экстренной блокировки: ${stderr}`)
+            } else {
+                ctx.reply('Экстренная блокировка отключена.')
+            }
+        })
+    }
+})
 
 // Функция для чтения времени блокировки из лога fail2ban
 const getBanTimes = (callback) => {
@@ -195,10 +210,7 @@ bot.command('blocked_ips', (ctx) => {
             }).join('\n')
 
             const inlineKeyboard = blockedIPs.map(ip => [
-                {
-                    text: `Разблокировать ${ip}`,
-                    callback_data: `unblock_ip_${ip}`
-                }
+                { text: `Разблокировать ${ip}`, callback_data: `unblock_ip_${ip}` }
             ])
 
             ctx.reply(replyText, {
@@ -242,14 +254,8 @@ ${whoStdout.trim()}
                     const user = match[1]
                     const ip = match[2]
                     return [
-                        {
-                            text: `Закрыть соединение ${ip}`,
-                            callback_data: `close_session_${ip}`
-                        },
-                        {
-                            text: `Закрыть и заблокировать ${ip}`,
-                            callback_data: `close_and_block_${ip}`
-                        }
+                        { text: `Закрыть соединение ${ip}`, callback_data: `close_session_${ip}` },
+                        { text: `Закрыть и заблокировать ${ip}`, callback_data: `close_and_block_${ip}` }
                     ]
                 }
                 return []
@@ -265,11 +271,25 @@ ${whoStdout.trim()}
     })
 })
 
+// Команда для экстренной блокировки всех соединений
+bot.command('emergency', (ctx) => {
+    ctx.reply('Выберите действие:', {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: 'Включить экстренную блокировку', callback_data: 'enable_emergency' }],
+                [{ text: 'Отключить экстренную блокировку', callback_data: 'disable_emergency' }]
+            ]
+        }
+    })
+})
+
 // Обновление команд бота при старте
 const desiredCommands = [
     { command: 'blocked_ips', description: 'Показать заблокированные IP' },
-    { command: 'logins', description: 'Показать успешные логины и текущие сессии' }
+    { command: 'logins', description: 'Показать успешные логины и текущие сессии' },
+    { command: 'emergency', description: 'Экстренная блокировка всех соединений' }
 ]
+
 updateBotCommands(desiredCommands)
 
 async function updateBotCommands(desiredCommands) {
