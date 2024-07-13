@@ -62,7 +62,6 @@ const handleLogin = (line) => {
     if (match) {
         const ip = match[1]
         if (!whitelistIPs.includes(ip)) {
-            sendMessage(ip)
             blockIP(ip)
         }
     }
