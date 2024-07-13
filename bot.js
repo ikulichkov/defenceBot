@@ -64,6 +64,8 @@ fs.watchFile(logFilePath, (curr, prev) => {
     })
 })
 
+const { exec } = require('child_process')
+
 // Обработка callback запроса от бота
 bot.on('callback_query', (ctx) => {
     const action = ctx.callbackQuery.data
@@ -95,27 +97,41 @@ bot.on('callback_query', (ctx) => {
     }
 
     if (closeSessionMatch) {
-        const ip = closeSessionMatch[1]
-        exec(`sudo pkill -f "sshd: ${ip}"`, (err, stdout, stderr) => {
+        const tty = closeSessionMatch[1]
+        exec(`sudo pkill -KILL -t ${tty}`, (err, stdout, stderr) => {
             if (err) {
                 ctx.reply(`Ошибка при закрытии сессии: ${stderr}`)
             } else {
-                ctx.reply(`Сессия с IP ${ip} закрыта.`)
+                ctx.reply(`Сессия с терминалом ${tty} закрыта.`)
             }
         })
     }
 
     if (closeAndBlockMatch) {
         const ip = closeAndBlockMatch[1]
-        exec(`sudo pkill -f "sshd: ${ip}" && sudo fail2ban-client set sshd banip ${ip}`, (err, stdout, stderr) => {
+        exec(`who | grep "${ip}" | awk '{print $2}'`, (err, stdout, stderr) => {
             if (err) {
-                ctx.reply(`Ошибка при закрытии сессии и блокировке IP: ${stderr}`)
+                ctx.reply(`Ошибка при определении терминала для закрытия сессии: ${stderr}`)
             } else {
-                ctx.reply(`Сессия с IP ${ip} закрыта и IP заблокирован.`)
+                const tty = stdout.trim()
+                exec(`sudo pkill -KILL -t ${tty}`, (err, stdout, stderr) => {
+                    if (err) {
+                        ctx.reply(`Ошибка при закрытии сессии: ${stderr}`)
+                    } else {
+                        exec(`sudo fail2ban-client set sshd banip ${ip}`, (err, stdout, stderr) => {
+                            if (err) {
+                                ctx.reply(`Ошибка при блокировке IP: ${stderr}`)
+                            } else {
+                                ctx.reply(`Сессия с IP ${ip} закрыта и IP заблокирован.`)
+                            }
+                        })
+                    }
+                })
             }
         })
     }
 })
+
 
 // Функция для чтения времени блокировки из лога fail2ban
 const getBanTimes = (callback) => {
