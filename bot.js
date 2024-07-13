@@ -36,14 +36,6 @@ const sendMessage = (ip) => {
                     {
                         text: 'Разблокировать IP',
                         callback_data: `unblock_ip_${ip}`
-                    },
-                    {
-                        text: 'Закрыть соединение',
-                        callback_data: `close_session_${ip}`
-                    },
-                    {
-                        text: 'Закрыть и заблокировать',
-                        callback_data: `close_and_block_${ip}`
                     }
                 ]
             ]
@@ -185,14 +177,6 @@ bot.command('blocked_ips', (ctx) => {
                 {
                     text: `Разблокировать ${ip}`,
                     callback_data: `unblock_ip_${ip}`
-                },
-                {
-                    text: `Закрыть соединение`,
-                    callback_data: `close_session_${ip}`
-                },
-                {
-                    text: `Закрыть и заблокировать`,
-                    callback_data: `close_and_block_${ip}`
                 }
             ])
 
@@ -231,7 +215,31 @@ ${whoStdout.trim()}
 \`\`\`
             `
 
-            ctx.reply(replyText, { parse_mode: 'Markdown' })
+            const inlineKeyboard = whoStdout.split('\n').filter(line => line.trim()).map(line => {
+                const match = line.match(/(\S+)\s+.*\(([\d.]+)\)/)
+                if (match) {
+                    const user = match[1]
+                    const ip = match[2]
+                    return [
+                        {
+                            text: `Закрыть соединение ${ip}`,
+                            callback_data: `close_session_${ip}`
+                        },
+                        {
+                            text: `Закрыть и заблокировать ${ip}`,
+                            callback_data: `close_and_block_${ip}`
+                        }
+                    ]
+                }
+                return []
+            })
+
+            ctx.reply(replyText, {
+                reply_markup: {
+                    inline_keyboard: inlineKeyboard
+                },
+                parse_mode: 'Markdown'
+            })
         })
     })
 })
