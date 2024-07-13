@@ -21,9 +21,9 @@ const logFilePath = os.platform() === 'win32' ? path.join(__dirname, 'auth.log')
 const sendMessage = (ip) => {
     const keyboard = [
         [
-            { text: 'Заблокировать IP', callback_data: `block_ip_${ip}` },
-            { text: 'Закрыть соединение', callback_data: `close_session_${ip}` },
-            { text: 'Закрыть и заблокировать', callback_data: `close_and_block_${ip}` }
+            [{ text: 'Заблокировать IP', callback_data: `block_ip_${ip}` }],
+            [{ text: 'Закрыть соединение', callback_data: `close_session_${ip}` }],
+            [{ text: 'Закрыть и заблокировать', callback_data: `close_and_block_${ip}` }]
         ]
     ]
     bot.telegram.sendMessage(chatId, `Обнаружен логин с IP: ${ip}`, {
