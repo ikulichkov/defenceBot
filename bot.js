@@ -8,34 +8,17 @@ import { fileURLToPath } from 'url'
 
 dotenv.config()
 
-// Настройки бота и белого списка IP
 const token = process.env.TELEGRAM_BOT_TOKEN
 const chatId = process.env.TELEGRAM_CHAT_ID
 const whitelistIPs = process.env.WHITELISTED_IPS.split(',')
 
 const bot = new Telegraf(token)
 
-// Определение пути к лог-файлу в зависимости от ОС
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const logFilePath = os.platform() === 'win32' ? path.join(__dirname, 'auth.log') : '/var/log/auth.log'
 
-// Максимальное количество отображаемых заблокированных IP
 const maxBlockedIPs = Math.min(Math.max(parseInt(process.env.MAX_BLOCKED_IPS || 10), 5), 50)
-
-// Функция для отправки сообщения
-const sendMessage = (ip) => {
-    bot.telegram.sendMessage(chatId, `Обнаружен логин с IP: ${ip}`, {
-        reply_markup: {
-            inline_keyboard: [
-                [
-                    { text: 'Заблокировать IP', callback_data: `block_ip_${ip}` },
-                    { text: 'Разблокировать IP', callback_data: `unblock_ip_${ip}` }
-                ]
-            ]
-        }
-    })
-}
 
 const sendMessage = (ip, blocked = false) => {
     const keyboard = [
@@ -62,7 +45,18 @@ const blockIP = (ip) => {
     })
 }
 
-// Чтение логов в реальном времени
+const handleLogin = (line) => {
+    const regex = /sshd\[.*\]: Accepted .* for .* from (.*) port/
+    const match = regex.exec(line)
+    if (match) {
+        const ip = match[1]
+        if (!whitelistIPs.includes(ip)) {
+            sendMessage(ip)
+            blockIP(ip)
+        }
+    }
+}
+
 fs.watchFile(logFilePath, (curr, prev) => {
     fs.readFile(logFilePath, 'utf8', (err, data) => {
         if (err) throw err
@@ -71,7 +65,6 @@ fs.watchFile(logFilePath, (curr, prev) => {
     })
 })
 
-// Обработка callback запроса от бота
 bot.on('callback_query', (ctx) => {
     const action = ctx.callbackQuery.data
     const blockMatch = action.match(/^block_ip_(.*)$/)
@@ -140,7 +133,6 @@ bot.on('callback_query', (ctx) => {
     }
 })
 
-// Функция для чтения времени блокировки из лога fail2ban
 const getBanTimes = (callback) => {
     fs.readFile('/var/log/fail2ban.log', 'utf8', (err, data) => {
         if (err) {
@@ -151,7 +143,7 @@ const getBanTimes = (callback) => {
         const banTimes = {}
         const lines = data.split('\n')
         lines.forEach(line => {
-            const match = line.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ fail2ban.actions\s+\[\d+\]: NOTICE\s+\[sshd\] Ban (.*)$/)
+            const match = line.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\д{2}),\d+ fail2ban.actions\s+\[\д+\]: NOTICE\s+\[sshd\] Ban (.*)$/)
             if (match) {
                 const date = match[1]
                 const ip = match[2]
@@ -163,7 +155,6 @@ const getBanTimes = (callback) => {
     })
 }
 
-// Команда для отображения заблокированных IP
 bot.command('blocked_ips', (ctx) => {
     exec('sudo fail2ban-client status sshd', (err, stdout, stderr) => {
         if (err) {
@@ -209,7 +200,6 @@ bot.command('blocked_ips', (ctx) => {
     })
 })
 
-// Команда для отображения успешных логинов и текущих сессий
 bot.command('logins', (ctx) => {
     exec('last -n 10', (err, lastStdout, lastStderr) => {
         if (err) {
@@ -258,7 +248,6 @@ ${whoStdout.trim()}
     })
 })
 
-// Команда для экстренной блокировки всех соединений
 bot.command('emergency', (ctx) => {
     ctx.reply('Выберите действие:', {
         reply_markup: {
@@ -270,7 +259,6 @@ bot.command('emergency', (ctx) => {
     })
 })
 
-// Обновление команд бота при старте
 const desiredCommands = [
     { command: 'blocked_ips', description: 'Показать заблокированные IP' },
     { command: 'logins', description: 'Показать успешные логины и текущие сессии' },
