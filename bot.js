@@ -104,11 +104,11 @@ const getBanTimes = (callback) => {
         const banTimes = {}
         const lines = data.split('\n')
         lines.forEach(line => {
-            const match = line.match(/.*fail2ban.actions.* Ban (.*)$/)
+            const match = line.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ fail2ban.actions\s+\[\d+\]: NOTICE\s+\[sshd\] Ban (.*)$/)
             if (match) {
-                const ip = match[1]
-                const date = new Date(line.split(' ')[0])
-                banTimes[ip] = date.toLocaleString()
+                const date = match[1]
+                const ip = match[2]
+                banTimes[ip] = date
             }
         })
 
@@ -167,7 +167,6 @@ bot.command('blocked_ips', (ctx) => {
 
 // Обновление команд бота при старте
 const desiredCommands = [
-    { command: 'start', description: 'Начать работу с ботом' },
     { command: 'blocked_ips', description: 'Показать заблокированные IP' }
 ]
 await updateBotCommands(desiredCommands)
