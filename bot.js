@@ -36,6 +36,14 @@ const sendMessage = (ip) => {
                     {
                         text: 'Разблокировать IP',
                         callback_data: `unblock_ip_${ip}`
+                    },
+                    {
+                        text: 'Закрыть соединение',
+                        callback_data: `close_session_${ip}`
+                    },
+                    {
+                        text: 'Закрыть и заблокировать',
+                        callback_data: `close_and_block_${ip}`
                     }
                 ]
             ]
@@ -69,6 +77,8 @@ bot.on('callback_query', (ctx) => {
     const action = ctx.callbackQuery.data
     const blockMatch = action.match(/^block_ip_(.*)$/)
     const unblockMatch = action.match(/^unblock_ip_(.*)$/)
+    const closeSessionMatch = action.match(/^close_session_(.*)$/)
+    const closeAndBlockMatch = action.match(/^close_and_block_(.*)$/)
 
     if (blockMatch) {
         const ip = blockMatch[1]
@@ -88,6 +98,28 @@ bot.on('callback_query', (ctx) => {
                 ctx.reply(`Ошибка при разблокировке IP: ${stderr}`)
             } else {
                 ctx.reply(`IP ${ip} разблокирован.`)
+            }
+        })
+    }
+
+    if (closeSessionMatch) {
+        const ip = closeSessionMatch[1]
+        exec(`sudo pkill -f "sshd: ${ip}"`, (err, stdout, stderr) => {
+            if (err) {
+                ctx.reply(`Ошибка при закрытии сессии: ${stderr}`)
+            } else {
+                ctx.reply(`Сессия с IP ${ip} закрыта.`)
+            }
+        })
+    }
+
+    if (closeAndBlockMatch) {
+        const ip = closeAndBlockMatch[1]
+        exec(`sudo pkill -f "sshd: ${ip}" && sudo fail2ban-client set sshd banip ${ip}`, (err, stdout, stderr) => {
+            if (err) {
+                ctx.reply(`Ошибка при закрытии сессии и блокировке IP: ${stderr}`)
+            } else {
+                ctx.reply(`Сессия с IP ${ip} закрыта и IP заблокирован.`)
             }
         })
     }
@@ -153,6 +185,14 @@ bot.command('blocked_ips', (ctx) => {
                 {
                     text: `Разблокировать ${ip}`,
                     callback_data: `unblock_ip_${ip}`
+                },
+                {
+                    text: `Закрыть соединение`,
+                    callback_data: `close_session_${ip}`
+                },
+                {
+                    text: `Закрыть и заблокировать`,
+                    callback_data: `close_and_block_${ip}`
                 }
             ])
 
@@ -201,7 +241,7 @@ const desiredCommands = [
     { command: 'blocked_ips', description: 'Показать заблокированные IP' },
     { command: 'logins', description: 'Показать успешные логины и текущие сессии' }
 ]
-await updateBotCommands(desiredCommands)
+updateBotCommands(desiredCommands)
 
 async function updateBotCommands(desiredCommands) {
     try {
