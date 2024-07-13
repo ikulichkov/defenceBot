@@ -68,26 +68,24 @@ bot.on('callback_query', (ctx) => {
     const enableEmergencyMatch = action.match(/^enable_emergency$/)
     const disableEmergencyMatch = action.match(/^disable_emergency$/)
 
-    if (blockMatch) {
-        const ip = blockMatch[1]
-        exec(`sudo fail2ban-client set sshd banip ${ip}`, (err, stdout, stderr) => {
+    const executeCommand = (command, successMessage, errorMessage) => {
+        exec(command, (err, stdout, stderr) => {
             if (err) {
-                ctx.reply(`Ошибка при блокировке IP: ${stderr}`)
+                ctx.reply(`${errorMessage}: ${stderr}`)
             } else {
-                ctx.reply(`IP ${ip} заблокирован.`)
+                ctx.reply(successMessage)
             }
         })
     }
 
+    if (blockMatch) {
+        const ip = blockMatch[1]
+        executeCommand(`sudo fail2ban-client set sshd banip ${ip}`, `IP ${ip} заблокирован.`, 'Ошибка при блокировке IP')
+    }
+
     if (unblockMatch) {
         const ip = unblockMatch[1]
-        exec(`sudo fail2ban-client set sshd unbanip ${ip}`, (err, stdout, stderr) => {
-            if (err) {
-                ctx.reply(`Ошибка при разблокировке IP: ${stderr}`)
-            } else {
-                ctx.reply(`IP ${ip} разблокирован.`)
-            }
-        })
+        executeCommand(`sudo fail2ban-client set sshd unbanip ${ip}`, `IP ${ip} разблокирован.`, 'Ошибка при разблокировке IP')
     }
 
     if (closeSessionMatch) {
@@ -97,13 +95,7 @@ bot.on('callback_query', (ctx) => {
                 ctx.reply(`Ошибка при определении терминала для закрытия сессии: ${stderr}`)
             } else {
                 const tty = stdout.trim()
-                exec(`sudo pkill -KILL -t ${tty}`, (err, stdout, stderr) => {
-                    if (err) {
-                        ctx.reply(`Ошибка при закрытии сессии: ${stderr}`)
-                    } else {
-                        ctx.reply(`Сессия с терминалом ${tty} закрыта.`)
-                    }
-                })
+                executeCommand(`sudo pkill -KILL -t ${tty}`, `Сессия с терминалом ${tty} закрыта.`, 'Ошибка при закрытии сессии')
             }
         })
     }
@@ -119,13 +111,7 @@ bot.on('callback_query', (ctx) => {
                     if (err) {
                         ctx.reply(`Ошибка при закрытии сессии: ${stderr}`)
                     } else {
-                        exec(`sudo fail2ban-client set sshd banip ${ip}`, (err, stdout, stderr) => {
-                            if (err) {
-                                ctx.reply(`Ошибка при блокировке IP: ${stderr}`)
-                            } else {
-                                ctx.reply(`Сессия с IP ${ip} закрыта и IP заблокирован.`)
-                            }
-                        })
+                        executeCommand(`sudo fail2ban-client set sshd banip ${ip}`, `Сессия с IP ${ip} закрыта и IP заблокирован.`, 'Ошибка при блокировке IP')
                     }
                 })
             }
@@ -133,23 +119,11 @@ bot.on('callback_query', (ctx) => {
     }
 
     if (enableEmergencyMatch) {
-        exec('sudo ufw default deny incoming && sudo ufw enable', (err, stdout, stderr) => {
-            if (err) {
-                ctx.reply(`Ошибка при включении экстренной блокировки: ${stderr}`)
-            } else {
-                ctx.reply('Экстренная блокировка включена.')
-            }
-        })
+        executeCommand('sudo ufw default deny incoming && sudo ufw enable', 'Экстренная блокировка включена.', 'Ошибка при включении экстренной блокировки')
     }
 
     if (disableEmergencyMatch) {
-        exec('sudo ufw disable', (err, stdout, stderr) => {
-            if (err) {
-                ctx.reply(`Ошибка при отключении экстренной блокировки: ${stderr}`)
-            } else {
-                ctx.reply('Экстренная блокировка отключена.')
-            }
-        })
+        executeCommand('sudo ufw disable', 'Экстренная блокировка отключена.', 'Ошибка при отключении экстренной блокировки')
     }
 })
 
