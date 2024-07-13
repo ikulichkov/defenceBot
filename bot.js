@@ -35,23 +35,12 @@ const sendMessage = (ip, blocked = false) => {
 }
 
 const blockIP = (ip) => {
-    exec(`sudo ufw deny from ${ip}`, (err, stdout, stderr) => {
+    exec(`sudo fail2ban-client set sshd banip ${ip}`, (err, stdout, stderr) => {
         if (err) {
             console.error(`Ошибка при блокировке IP ${ip}: ${stderr}`)
         } else {
             console.log(`IP ${ip} заблокирован.`)
-            sendMessage(ip, true)
-        }
-    })
-}
-
-const unblockIP = (ip) => {
-    exec(`sudo ufw delete deny from ${ip}`, (err, stdout, stderr) => {
-        if (err) {
-            console.error(`Ошибка при разблокировке IP ${ip}: ${stderr}`)
-        } else {
-            console.log(`IP ${ip} разблокирован.`)
-            bot.telegram.sendMessage(chatId, `IP ${ip} разблокирован.`)
+            // sendMessage(ip, true)
         }
     })
 }
@@ -62,6 +51,7 @@ const handleLogin = (line) => {
     if (match) {
         const ip = match[1]
         if (!whitelistIPs.includes(ip)) {
+            // sendMessage(ip)
             blockIP(ip)
         }
     }
@@ -96,12 +86,12 @@ bot.on('callback_query', (ctx) => {
 
     if (blockMatch) {
         const ip = blockMatch[1]
-        executeCommand(`sudo ufw deny from ${ip}`, `IP ${ip} заблокирован.`, 'Ошибка при блокировке IP')
+        executeCommand(`sudo fail2ban-client set sshd banip ${ip}`, `IP ${ip} заблокирован.`, 'Ошибка при блокировке IP')
     }
 
     if (unblockMatch) {
         const ip = unblockMatch[1]
-        executeCommand(`sudo ufw delete deny from ${ip}`, `IP ${ip} разблокирован.`, 'Ошибка при разблокировке IP')
+        executeCommand(`sudo fail2ban-client set sshd unbanip ${ip}`, `IP ${ip} разблокирован.`, 'Ошибка при разблокировке IP')
     }
 
     if (closeSessionMatch) {
@@ -127,7 +117,7 @@ bot.on('callback_query', (ctx) => {
                     if (err) {
                         ctx.reply(`Ошибка при закрытии сессии: ${stderr}`)
                     } else {
-                        executeCommand(`sudo ufw deny from ${ip}`, `Сессия с IP ${ip} закрыта и IP заблокирован.`, 'Ошибка при блокировке IP')
+                        executeCommand(`sudo fail2ban-client set sshd banip ${ip}`, `Сессия с IP ${ip} закрыта и IP заблокирован.`, 'Ошибка при блокировке IP')
                     }
                 })
             }
@@ -144,7 +134,7 @@ bot.on('callback_query', (ctx) => {
 })
 
 const getBanTimes = (callback) => {
-    fs.readFile('/var/log/ufw.log', 'utf8', (err, data) => {
+    fs.readFile('/var/log/fail2ban.log', 'utf8', (err, data) => {
         if (err) {
             callback(err)
             return
@@ -153,7 +143,7 @@ const getBanTimes = (callback) => {
         const banTimes = {}
         const lines = data.split('\n')
         lines.forEach(line => {
-            const match = line.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\д{2}),\d+ ufw\s+\[\д+\]: BLOCK\s+\[sshd\] Ban (.*)$/)
+            const match = line.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\д{2}),\d+ fail2ban.actions\s+\[\д+\]: NOTICE\s+\[sshd\] Ban (.*)$/)
             if (match) {
                 const date = match[1]
                 const ip = match[2]
@@ -166,13 +156,13 @@ const getBanTimes = (callback) => {
 }
 
 bot.command('blocked_ips', (ctx) => {
-    exec('sudo ufw status', (err, stdout, stderr) => {
+    exec('sudo fail2ban-client status sshd', (err, stdout, stderr) => {
         if (err) {
             ctx.reply(`Ошибка при получении заблокированных IP: ${stderr}`)
             return
         }
 
-        const ipListMatch = stdout.match(/To\s+(\d+\.\d+\.\d+\.\d+\/\d+)/)
+        const ipListMatch = stdout.match(/Banned IP list:\s+([\s\S]+)/)
         if (!ipListMatch) {
             ctx.reply('Нет заблокированных IP-адресов.')
             return
@@ -236,12 +226,12 @@ ${whoStdout.trim()}
             `
 
             const inlineKeyboard = whoStdout.split('\n').filter(line => line.trim()).map(line => {
-                const match = line.match(/(\S+)\s+.*\(([\д.]+)\)/)
+                const match = line.match(/(\S+)\s+.*\(([\d.]+)\)/)
                 if (match) {
                     const user = match[1]
                     const ip = match[2]
                     return [
-                        { text: `Закрыть соединение ${ip}`, callback_data: `close_session_${ip}` },
+                        { text: ` ${ip}`, callback_data: `close_session_${ip}` },
                         { text: `Закрыть и заблокировать ${ip}`, callback_data: `close_and_block_${ip}` }
                     ]
                 }
