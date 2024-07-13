@@ -37,16 +37,29 @@ const sendMessage = (ip) => {
     })
 }
 
-// Обработка логина
-const handleLogin = (line) => {
-    const regex = /sshd\[.*\]: Accepted .* for .* from (.*) port/
-    const match = regex.exec(line)
-    if (match) {
-        const ip = match[1]
-        if (!whitelistIPs.includes(ip)) {
-            sendMessage(ip)
-        }
+const sendMessage = (ip, blocked = false) => {
+    const keyboard = [
+        [{ text: 'Заблокировать IP', callback_data: `block_ip_${ip}` }]
+    ]
+    if (blocked) {
+        keyboard[0].push({ text: 'Разблокировать IP', callback_data: `unblock_ip_${ip}` })
     }
+    bot.telegram.sendMessage(chatId, `Обнаружен логин с IP: ${ip}`, {
+        reply_markup: {
+            inline_keyboard: keyboard
+        }
+    })
+}
+
+const blockIP = (ip) => {
+    exec(`sudo fail2ban-client set sshd banip ${ip}`, (err, stdout, stderr) => {
+        if (err) {
+            console.error(`Ошибка при блокировке IP ${ip}: ${stderr}`)
+        } else {
+            console.log(`IP ${ip} заблокирован.`)
+            sendMessage(ip, true)
+        }
+    })
 }
 
 // Чтение логов в реальном времени
