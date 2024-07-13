@@ -93,6 +93,29 @@ bot.on('callback_query', (ctx) => {
     }
 })
 
+// Функция для чтения времени блокировки из лога fail2ban
+const getBanTimes = (callback) => {
+    fs.readFile('/var/log/fail2ban.log', 'utf8', (err, data) => {
+        if (err) {
+            callback(err)
+            return
+        }
+
+        const banTimes = {}
+        const lines = data.split('\n')
+        lines.forEach(line => {
+            const match = line.match(/.*fail2ban.actions.* Ban (.*)$/)
+            if (match) {
+                const ip = match[1]
+                const date = new Date(line.split(' ')[0])
+                banTimes[ip] = date.toLocaleString()
+            }
+        })
+
+        callback(null, banTimes)
+    })
+}
+
 // Команда для отображения заблокированных IP
 bot.command('blocked_ips', (ctx) => {
     exec('sudo fail2ban-client status sshd', (err, stdout, stderr) => {
@@ -115,28 +138,36 @@ bot.command('blocked_ips', (ctx) => {
             return
         }
 
-        const replyText = blockedIPs.map((ip, index) => {
-            const date = new Date().toLocaleString()
-            return `${index + 1}. IP: ${ip} - Заблокирован: ${date}`
-        }).join('\n')
-
-        const inlineKeyboard = blockedIPs.map(ip => [
-            {
-                text: `Разблокировать ${ip}`,
-                callback_data: `unblock_ip_${ip}`
+        getBanTimes((err, banTimes) => {
+            if (err) {
+                ctx.reply(`Ошибка при получении времени блокировки: ${err}`)
+                return
             }
-        ])
 
-        ctx.reply(replyText, {
-            reply_markup: {
-                inline_keyboard: inlineKeyboard
-            }
+            const replyText = blockedIPs.map((ip, index) => {
+                const date = banTimes[ip] || 'Неизвестно'
+                return `${index + 1}. IP: ${ip} - Заблокирован: ${date}`
+            }).join('\n')
+
+            const inlineKeyboard = blockedIPs.map(ip => [
+                {
+                    text: `Разблокировать ${ip}`,
+                    callback_data: `unblock_ip_${ip}`
+                }
+            ])
+
+            ctx.reply(replyText, {
+                reply_markup: {
+                    inline_keyboard: inlineKeyboard
+                }
+            })
         })
     })
 })
 
 // Обновление команд бота при старте
 const desiredCommands = [
+    { command: 'start', description: 'Начать работу с ботом' },
     { command: 'blocked_ips', description: 'Показать заблокированные IP' }
 ]
 await updateBotCommands(desiredCommands)
