@@ -130,4 +130,36 @@ ${lastStdout.trim()}
     })
 })
 
+const desiredCommands = [
+    { command: 'logins', description: 'Показать успешные логины и текущие сессии' },
+    { command: 'recent_logins', description: 'Показать 20 успешных логинов' }
+]
+
+updateBotCommands(desiredCommands)
+
+async function updateBotCommands(desiredCommands) {
+    try {
+        const currentCommands = await bot.telegram.getMyCommands()
+
+        const commandsToRemove = currentCommands.filter(
+            cmd => !desiredCommands.some(desiredCmd => desiredCmd.command === cmd.command)
+        )
+
+        const commandsToAdd = desiredCommands.filter(
+            desiredCmd => !currentCommands.some(cmd => cmd.command === desiredCmd.command)
+        )
+
+        if (commandsToRemove.length > 0) {
+            await bot.telegram.deleteMyCommands()
+        }
+
+        if (commandsToAdd.length > 0 || commandsToRemove.length > 0) {
+            await bot.telegram.setMyCommands(desiredCommands)
+        }
+
+    } catch (e) {
+        console.error('Ошибка при обновлении команд бота', e)
+    }
+}
+
 bot.launch()
