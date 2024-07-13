@@ -95,12 +95,19 @@ bot.on('callback_query', (ctx) => {
     }
 
     if (closeSessionMatch) {
-        const tty = closeSessionMatch[1]
-        exec(`sudo pkill -KILL -t ${tty}`, (err, stdout, stderr) => {
+        const ip = closeSessionMatch[1]
+        exec(`who | grep "${ip}" | awk '{print $2}'`, (err, stdout, stderr) => {
             if (err) {
-                ctx.reply(`Ошибка при закрытии сессии: ${stderr}`)
+                ctx.reply(`Ошибка при определении терминала для закрытия сессии: ${stderr}`)
             } else {
-                ctx.reply(`Сессия с терминалом ${tty} закрыта.`)
+                const tty = stdout.trim()
+                exec(`sudo pkill -KILL -t ${tty}`, (err, stdout, stderr) => {
+                    if (err) {
+                        ctx.reply(`Ошибка при закрытии сессии: ${stderr}`)
+                    } else {
+                        ctx.reply(`Сессия с терминалом ${tty} закрыта.`)
+                    }
+                })
             }
         })
     }
