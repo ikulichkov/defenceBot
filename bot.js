@@ -165,9 +165,41 @@ bot.command('blocked_ips', (ctx) => {
     })
 })
 
+// Команда для отображения успешных логинов и текущих сессий
+bot.command('logins', (ctx) => {
+    exec('last -n 10', (err, lastStdout, lastStderr) => {
+        if (err) {
+            ctx.reply(`Ошибка при получении истории логинов: ${lastStderr}`)
+            return
+        }
+
+        exec('who', (err, whoStdout, whoStderr) => {
+            if (err) {
+                ctx.reply(`Ошибка при получении текущих сессий: ${whoStderr}`)
+                return
+            }
+
+            const replyText = `
+История успешных логинов:
+\`\`\`
+${lastStdout.trim()}
+\`\`\`
+
+Текущие сессии:
+\`\`\`
+${whoStdout.trim()}
+\`\`\`
+            `
+
+            ctx.reply(replyText, { parse_mode: 'Markdown' })
+        })
+    })
+})
+
 // Обновление команд бота при старте
 const desiredCommands = [
-    { command: 'blocked_ips', description: 'Показать заблокированные IP' }
+    { command: 'blocked_ips', description: 'Показать заблокированные IP' },
+    { command: 'logins', description: 'Показать успешные логины и текущие сессии' }
 ]
 await updateBotCommands(desiredCommands)
 
