@@ -49,24 +49,31 @@ const closeSession = (ip, ctx) => {
             ctx.reply(`Ошибка при определении терминала для закрытия сессии: ${stderr}`)
         } else {
             const tty = stdout.trim()
-            exec(`sudo pkill -KILL -t ${tty}`, (err, stdout, stderr) => {
-                if (err) {
-                    ctx.reply(`Ошибка при закрытии сессии: ${stderr}`)
-                } else {
-                    ctx.reply(`Сессия с терминалом ${tty} закрыта.`)
-                }
-            })
+            if (tty) {
+                exec(`sudo pkill -KILL -t ${tty}`, (err, stdout, stderr) => {
+                    if (err) {
+                        ctx.reply(`Ошибка при закрытии сессии: ${stderr}`)
+                    } else {
+                        ctx.reply(`Сессия с терминалом ${tty} закрыта.`)
+                    }
+                })
+            } else {
+                ctx.reply(`Не удалось найти активную сессию для IP ${ip}.`)
+            }
         }
     })
 }
 
 const handleLogin = (line) => {
-    const regex = /sshd\[.*\]: Accepted .* for .* from (.*) port/
+    const regex = /pam_unix\(sshd:session\): session opened for user .* by \(uid=0\)/;
     const match = regex.exec(line)
     if (match) {
-        const ip = match[1]
-        if (!whitelistIPs.includes(ip)) {
-            sendMessage(ip)
+        const ipMatch = line.match(/from\s+([^\s]+)/);
+        if (ipMatch) {
+            const ip = ipMatch[1];
+            if (!whitelistIPs.includes(ip)) {
+                sendMessage(ip)
+            }
         }
     }
 }
