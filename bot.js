@@ -64,8 +64,6 @@ fs.watchFile(logFilePath, (curr, prev) => {
     })
 })
 
-const { exec } = require('child_process')
-
 // Обработка callback запроса от бота
 bot.on('callback_query', (ctx) => {
     const action = ctx.callbackQuery.data
